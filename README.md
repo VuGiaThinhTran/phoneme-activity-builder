@@ -98,8 +98,6 @@ the classroom.
 
 ## References
 
-*(replace with your final APA 7th list -- minimum five academic or industry sources, cited in the video)*
-
 Nielsen, J. (1994). 10 usability heuristics for user interface design. Nielsen Norman   Group. https://www.nngroup.com/articles/ten-usability-heuristics/
 
 Meta Open Source. (n.d.). React documentation. React. Retrieved August 7, 2026, from   https://react.dev/
