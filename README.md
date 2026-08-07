@@ -100,8 +100,12 @@ the classroom.
 
 *(replace with your final APA 7th list -- minimum five academic or industry sources, cited in the video)*
 
-1. Author, A. A. (Year). *Title of work*. Publisher.
-2. ...
-3. ...
-4. ...
-5. ...
+Nielsen, J. (1994). 10 usability heuristics for user interface design. Nielsen Norman   Group. https://www.nngroup.com/articles/ten-usability-heuristics/
+
+Meta Open Source. (n.d.). React documentation. React. Retrieved August 7, 2026, from   https://react.dev/
+
+van Kleeck, A., Gillam, R. B., & McFadden, T. U. (1998). A study of classroom-based   phonological awareness training for preschoolers with speech and/or language   disorders. American Journal of Speech-Language Pathology, 7(3), 65–76.   https://doi.org/10.1044/1058-0360.0703.65
+
+Vercel. (n.d.). Next.js documentation. Next.js. Retrieved August 7, 2026, from   https://nextjs.org/docs
+
+World Wide Web Consortium. (2023). Web Content Accessibility Guidelines (WCAG) 2.2   (W3C Recommendation, updated December 12, 2024). https://www.w3.org/TR/WCAG22/
