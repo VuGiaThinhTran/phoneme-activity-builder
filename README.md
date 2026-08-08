@@ -9,13 +9,6 @@ Scaffolded with `npx create-next-app` (App Router, Tailwind CSS), then converted
 `.css` only — no `.js`, `.jsx`, or `.ts` files, per the lecturer's guidance that the
 frontend should be TSX/CSS only.
 
-## Before you submit
-
-- [ ] Replace the placeholder name/student number in `components/Footer.jsx` and `app/about/page.js`
-- [ ] Record your video walkthrough and embed/link it on the About page
-- [ ] Fill in the reference list below (minimum 5 sources, APA 7th) and cite them in the video
-- [ ] Run `rm -rf node_modules .next` before zipping for submission
-- [ ] Confirm the GitHub repo link is included with your submission
 
 ## Running locally
 

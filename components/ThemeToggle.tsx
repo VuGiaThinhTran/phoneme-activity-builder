@@ -30,8 +30,7 @@ export default function ThemeToggle() {
       className={`settings-btn inline-flex items-center gap-2 rounded-md px-4 py-2 text-sm font-semibold ${theme === "dark" ? "active" : ""}`}
       aria-pressed={theme === "dark"}
     >
-      <span aria-hidden="true">{theme === "dark" ? "🌙" : "☀️"}</span>
-      {theme === "dark" ? "Dark mode on" : "Light mode on"}
+      
     </button>
   );
 }
