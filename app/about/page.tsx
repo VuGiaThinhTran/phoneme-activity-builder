@@ -34,14 +34,18 @@ export default function About() {
       </ul>
 
       <h2 className="font-display text-xl font-bold mt-10">Video walkthrough</h2>
-      <div className="mt-3 aspect-video rounded-lg border-2 flex items-center justify-center text-sm opacity-60" style={{ borderColor: "var(--line)" }}>
-        {/* TODO: replace with an embedded <video> or <iframe> of your walkthrough */}
-        Video placeholder — embed your walkthrough here
+      <div className="mt-3 aspect-video rounded-lg border-2 flex items-center justify-center text-sm opacity-80" style={{ borderColor: "var(--line)" }}>
+        <iframe
+          className="w-full h-full"
+          src="https://www.youtube.com/embed/V7p9qQZHeyI"
+          title="Assessment 1 video walkthrough"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+          allowFullScreen
+        />
       </div>
 
       <h2 className="font-display text-xl font-bold mt-10">Author</h2>
       <p className="mt-2 text-sm opacity-80">
-        {/* TODO: replace with your real details */}
         Vu Gia Thinh Tran — Student Number 22955225
       </p>
     </main>
