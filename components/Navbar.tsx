@@ -12,6 +12,7 @@ const PRIMARY_LINKS = [
 ];
 
 const MENU_LINKS = [
+  { href: "/manage", label: "Manage" },
   { href: "/about", label: "About" },
   { href: "/settings", label: "Settings" },
 ];
