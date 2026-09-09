@@ -1,102 +1,239 @@
-# Phoneme Activity Builder — Assessment 1
+# Phoneme Activity Builder — Assessment 2
 
-A Next.js (React) frontend builder for Speech Pathology teachers, producing two
-phoneme-based classroom activities -- **Wordle** and **Word Search** -- each exportable
-as a single, standalone, playable `.html` file.
+A Next.js + TypeScript app for Speech Pathology teachers to build phoneme-based
+**Wordle** and **Word Search** classroom activities. Assessment 1 built the frontend;
+Assessment 2 adds the backend, database, and Docker layer described below — the
+frontend builder itself is unchanged in spirit, it now just reads and writes real,
+persisted data instead of only working with values typed into the browser.
 
-Scaffolded with `npx create-next-app` (App Router, Tailwind CSS), then converted to
-**TypeScript**. Every source file under `app/`, `components/`, and `lib/` is `.tsx` or
-`.css` only — no `.js`, `.jsx`, or `.ts` files, per the lecturer's guidance that the
-frontend should be TSX/CSS only.
+## What's new in Assessment 2
 
+- **PostgreSQL database** (via **Prisma ORM**) storing teacher-created word lists —
+  each a named "Activity" (Wordle or Word Search) with its own words and phoneme
+  sequences, difficulty, and (for Word Search) grid size.
+- **REST API routes** (Next.js Route Handlers) providing full CRUD for activities and
+  words, with **Zod** validation and clear error messages.
+- **A `/manage` page** — a real CRUD UI: create/list/edit/delete activities and their
+  words, backed entirely by the API above.
+- **The Wordle and Word Search builders can now load a saved activity from the
+  database** ("Load a saved word list") and generate their downloadable `.html`
+  output from that real, stored data — not just the static example corpus from
+  Assessment 1.
+- **`GET /health`** — a real health check that round-trips to the database, not just a
+  hardcoded 200.
+- **Docker** — the whole app + a Postgres service run via `docker compose up`.
 
-## Running locally
+## Tech stack
+
+- Next.js (App Router) + React + TypeScript
+- Prisma ORM + PostgreSQL
+- Zod for request validation
+- Docker + Docker Compose
+
+## Project structure (additions since Assessment 1)
+
+```
+prisma/
+  schema.prisma            The database schema (see below)
+  migrations/               Committed SQL migration(s)
+app/
+  api/
+    activities/route.ts             GET (list) / POST (create)
+    activities/[id]/route.ts        GET (one) / PATCH / DELETE
+    activities/[id]/words/route.ts  POST (add a word)
+    words/[id]/route.ts             PATCH / DELETE
+  health/route.ts            GET /health
+  manage/page.tsx            CRUD UI for activities & words
+lib/
+  db.ts                      Prisma Client singleton
+  validation.ts              Zod schemas + error formatting
+  serialize.ts                Converts Prisma rows -> plain JSON for the frontend
+  api-client.ts               Typed fetch() wrappers used by the frontend pages
+Dockerfile
+docker-compose.yml
+docker-entrypoint.sh          Runs `prisma migrate deploy` before starting the app
+.env.example
+```
+
+Note on file types: Assessment 1 required every frontend source file to be `.tsx` or
+`.css`. That constraint was specific to the frontend-only scope of Assessment 1. The
+new backend files above are legitimately `.ts` (not `.tsx`) because they contain no
+JSX — this is standard practice for API route handlers, database, and validation code
+in a Next.js project.
+
+## Database schema
+
+Three related tables (see `prisma/schema.prisma` for the full, commented version):
+
+```
+Activity  (id, name, activityType, difficulty, gridRows?, gridCols?, ...)
+  |-- Word  (id, english, hint?, orderIndex, ...)
+        |-- PhonemeSegment  (id, ipa, position)
+```
+
+**Why `PhonemeSegment` is its own table, not a delimited string column:** phoneme
+symbols are variable-length -- `"n"` is one character, `"tʃ"` or `"æɪ"` are two. Storing
+a word's phonemes as e.g. `"tʃ,ɪ,n"` and splitting on commas works, but storing each
+phoneme as its own row with an explicit `position` column is the more robust,
+normalized way to guarantee a multi-character symbol is never accidentally split or
+corrupted, and it's what's used here.
+
+**Why the phoneme *reference* table (the on-screen keyboard -- 43 IPA symbols, their
+labels, and example words) is *not* in the database:** it's fixed, unchanging content --
+every teacher sees the same keyboard. Per the assessment clarification, static content
+like this can stay as a constant in the frontend code (`lib/phonemes.tsx`, carried over
+from Assessment 1) rather than being duplicated into the database. Only the *dynamic*
+word lists teachers actually create are persisted.
+
+Cascading deletes are set up throughout: deleting an `Activity` deletes its `Word`s,
+which deletes their `PhonemeSegment`s -- confirmed by direct testing (see "How this was
+tested" below).
+
+## Running with Docker (recommended)
+
+```bash
+docker compose up --build
+```
+
+This builds the app image, starts a Postgres container, waits for Postgres to report
+healthy, then runs `npx prisma migrate deploy` (applying `prisma/migrations/`) before
+starting the Next.js server. Once it's up:
+
+- App: http://localhost:3000
+- Health check: http://localhost:3000/health
+- Manage activities: http://localhost:3000/manage
+
+The Postgres password is set in plain text directly in `docker-compose.yml`
+(`postgres` / `postgres`). This is a deliberate simplification accepted for this
+assessment to keep the Docker setup simple -- proper secret management via `.env` files
+and encrypted credentials is a later topic.
+
+To stop: `docker compose down` (add `-v` to also wipe the database volume and start
+fresh next time).
+
+## Running locally without Docker
+
+Requires a PostgreSQL server running locally.
 
 ```bash
 npm install
+cp .env.example .env      # edit DATABASE_URL if your Postgres isn't on localhost:5432
+npx prisma generate
+npx prisma migrate deploy  # applies prisma/migrations/
 npm run dev
-# open http://localhost:3000
 ```
 
-`npm run build && npm run start` runs a production build.
+## API reference
 
-## Project structure
+All endpoints return JSON. Validation errors return `400` with
+`{ "error": "...", "fields": { "<field>": ["..."] } }`; not-found returns `404`.
 
-```
-app/
-  layout.tsx           root layout: navbar, footer, cookie-based theme
-  page.tsx              Home
-  about/page.tsx        About (author, video, project scope)
-  wordle/page.tsx       Wordle builder + live preview + Generate
-  wordsearch/page.tsx   Word Search builder + live preview + Generate
-  settings/page.tsx     Light/dark mode + layout preference (cookies)
-components/
-  Navbar.tsx            Responsive nav with hamburger menu on mobile
-  Footer.tsx
-  ThemeToggle.tsx
-  PhonemeTile.tsx        Signature element: phoneme tile with IPA hover tooltip
-  PhonemeKey.tsx         Phoneme keyboard key with IPA hover tooltip
-lib/
-  phonemes.tsx            Phoneme reference data + parser for the word-list textarea
-  wordsearch.tsx           Word search grid placement algorithm (token-per-cell)
-  exportHtml.tsx            Builds the standalone, downloadable .html files
-```
+| Method | Path | Description |
+|---|---|---|
+| GET | `/health` | Health check -- round-trips to the DB, returns `200` (ok) or `503` (DB unreachable) |
+| GET | `/api/activities` | List all activities, with each one's word count |
+| POST | `/api/activities` | Create an activity (optionally with a full nested word list) |
+| GET | `/api/activities/:id` | One activity with its full, ordered word list |
+| PATCH | `/api/activities/:id` | Update an activity's own settings (name, difficulty, grid size) |
+| DELETE | `/api/activities/:id` | Delete an activity (cascades to its words) |
+| POST | `/api/activities/:id/words` | Add one word to an activity |
+| PATCH | `/api/words/:id` | Update a word (spelling, hint, and/or its whole phoneme sequence) |
+| DELETE | `/api/words/:id` | Delete a word |
 
-### Word Search input format
+Example -- creating a Wordle activity with two words in one request:
 
-Teachers type one word per line, with each phoneme separated by a space (this
-mirrors how multi-character phonemes like `tʃ` or `dʒ` are written), e.g.:
-
-```
-ʃ ɪ p
-tʃ ɪ n
-θ ɪ n
+```bash
+curl -X POST http://localhost:3000/api/activities \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Term 2 - SH sounds",
+    "activityType": "WORDLE",
+    "difficulty": "NORMAL",
+    "words": [
+      { "english": "ship", "hint": "a large boat", "phonemes": ["ʃ","ɪ","p"] },
+      { "english": "chin", "phonemes": ["tʃ","ɪ","n"] }
+    ]
+  }'
 ```
 
-Rows/Cols are configurable, **Generate Puzzle** reshuffles the grid, and
-**Show Answers** toggles a dashed outline over the placed words without
-revealing them by default.
+## How this was tested
 
-## Design decisions (talking points for the video)
+`npx prisma generate` / `migrate` need to download a native engine binary from
+Prisma's CDN -- this succeeds normally with regular internet access (on a real machine,
+in CI, or during a Docker build), but was blocked in the specific sandboxed
+environment this project was built in. To verify correctness anyway:
 
-**Component structure & scalability.** `PhonemeTile` and `PhonemeKey` are the
-reusable atoms shared by every page and by the exported HTML's own script -- the
-phoneme dataset in `lib/phonemes.js` is the single source of truth, so adding a
-word list or database in Assessment 2 only means swapping what feeds these
-components, not rebuilding the UI.
+- The exact SQL in `prisma/migrations/20260101000000_init/migration.sql` was applied
+  directly to a real local PostgreSQL instance and confirmed to create all tables,
+  types, indexes, and foreign keys correctly.
+- Multi-character phoneme storage (e.g. `"tʃ"`) and cascading deletes were both
+  confirmed directly against that database.
+- Every API route was exercised end-to-end over real HTTP (create, list, get-one,
+  update, add-word, update-word/replace-phonemes, delete-word, delete-activity/cascade,
+  and several validation-error cases) using a temporary raw-SQL stand-in for the
+  Prisma Client, then reverted -- the actual shipped code uses `@prisma/client` as
+  normal.
+- The `/manage` page and the Wordle/Word Search builders' "load a saved word list"
+  feature, including generating a downloadable `.html` file from data loaded out of
+  the database, were tested in a real browser against the running app.
+- Two later fixes were verified the same way: editing an existing activity's own
+  settings (name/difficulty/grid size) via `/manage` and confirming the change
+  persisted through a separate API call, and clearing a word's hint (an edge case
+  where sending an empty string has to become an explicit `null` for Prisma to
+  actually remove the value, rather than leaving the old one in place).
 
-**Usability.** Teachers move through a consistent three-step pattern --
-configure, preview, generate -- on both the Wordle and Word Search pages, so the
-workflow stays predictable even though the two activities are different games.
-The Generate button always sits in the same place in the builder panel.
+Running `npx prisma generate` is a completely normal, one-time step for any Prisma
+project -- it will succeed as usual with normal internet access.
 
-**Accessibility.** Tiles and keys expose the phoneme via `title`/`aria-label`
-(not hover alone), guess/board updates go through an `aria-live="polite"`
-status region, focus states are visible (`:focus-visible` outline), and colour
-is never the only signal -- tile state is also carried in the label text and
-border style. `prefers-reduced-motion` disables the tooltip transition.
+## How this maps to the marking rubric
 
-**Trade-offs.** Assessment 1 fixes the Wordle target word and the Word Search
-list rather than letting teachers type arbitrary words -- this keeps the frontend
-demonstrable without a backend, at the cost of flexibility that Assessment 2's
-database will restore. The exported HTML re-implements the game logic in plain
-JS rather than importing React, so the output has zero external dependencies
-and opens in any browser exactly as the brief requires.
+| Rubric row | Where it's satisfied |
+|---|---|
+| Database schema and phoneme data model | `prisma/schema.prisma` — `Activity` → `Word` → `PhonemeSegment`. Multi-character phonemes, activity settings (`difficulty`, `gridRows`/`gridCols`), and multiple saved activity configurations are all modelled, using Prisma. |
+| CRUD APIs and healthcheck | All 7 routes under "API reference" above; Zod validation with field-level error messages; `GET /health` round-trips to the DB. `/manage` provides full create/read/update/delete for **both** words and an activity's own settings (name, difficulty, grid size) — not just words. |
+| Dockerize | `Dockerfile` + `docker-compose.yml` — multi-stage build, non-root runtime user, healthcheck, auto-migrate on start. |
+| Activity generation and frontend-backend integration | The Wordle and Word Search builders' "Load a saved word list" control pulls real data from the API — including the stored **difficulty** and, for Word Search, the stored **grid size** — and Generate produces a downloadable `.html` file from that loaded data. |
+| Code quality and GitHub practice | See "Git workflow" below for the branching approach; `.gitignore` excludes `node_modules`/`.next`/`.env`; this README is kept current. |
 
-**Supporting Speech Pathology students and teachers.** Every phoneme is shown
-with its English grapheme first (so the interface is not intimidating to a
-non-linguist teacher), with the IPA symbol and an example word available on
-demand -- mirroring how phonics is usually introduced before IPA notation in
-the classroom.
+**Note on the submission brief's demonstration note:** the rubric document as supplied mentions showing *"the RSS Server sending feeds to the RSS Client"* — that doesn't apply to this project (there's no RSS feature here) and looks like it was copied from a different assignment's template and not updated. Worth confirming with the unit coordinator before recording the video, the same way the Assessment 1 brief was clarified by email — don't try to add an unrelated RSS feature based on it.
 
-## References
+**Note on Docker "follows the lab pattern closely":** the `Dockerfile` here follows the standard, widely-taught multi-stage Node/Next.js Docker pattern (deps → builder → runner, non-root user, healthcheck). If your unit's lab used a specifically different structure, compare against it and adjust — this wasn't built from that lab material directly since it wasn't provided.
 
-Nielsen, J. (1994). 10 usability heuristics for user interface design. Nielsen Norman   Group. https://www.nngroup.com/articles/ten-usability-heuristics/
+## Git workflow (for the "sensible branches" criterion)
 
-Meta Open Source. (n.d.). React documentation. React. Retrieved August 7, 2026, from   https://react.dev/
+The rubric rewards branches, not just commits on `main`. A simple, defensible structure:
 
-van Kleeck, A., Gillam, R. B., & McFadden, T. U. (1998). A study of classroom-based   phonological awareness training for preschoolers with speech and/or language   disorders. American Journal of Speech-Language Pathology, 7(3), 65–76.   https://doi.org/10.1044/1058-0360.0703.65
+```bash
+git checkout -b feature/database-schema    # prisma/schema.prisma, migrations
+# ...commit, then merge to main (or open a PR and merge on GitHub)
 
-Vercel. (n.d.). Next.js documentation. Next.js. Retrieved August 7, 2026, from   https://nextjs.org/docs
+git checkout main && git checkout -b feature/api-routes    # app/api/**, lib/validation.ts, lib/serialize.ts
+# ...
 
-World Wide Web Consortium. (2023). Web Content Accessibility Guidelines (WCAG) 2.2   (W3C Recommendation, updated December 12, 2024). https://www.w3.org/TR/WCAG22/
+git checkout main && git checkout -b feature/manage-ui     # app/manage/page.tsx, lib/api-client.ts
+# ...
+
+git checkout main && git checkout -b feature/docker        # Dockerfile, docker-compose.yml, docker-entrypoint.sh
+# ...
+
+git checkout main && git checkout -b feature/frontend-integration   # the "load saved activity" additions to app/wordle and app/wordsearch
+```
+
+Each branch gets its own focused commit(s), then merges back into `main` (via `git merge` locally or a Pull Request on GitHub — a PR is the stronger signal for "sensible branches" since it's visible on the repo's Pull Requests tab). This also gives natural talking points for the video's GitHub segment.
+
+## Before you submit
+
+- [ ] Confirm with your instructor whether the "RSS Server/RSS Client" line in the
+      demonstration checklist is a template error (see above) — don't build an
+      unrelated RSS feature based on it
+- [ ] Run `docker compose up --build` yourself once to confirm it works end-to-end on
+      your machine
+- [ ] Use a branching workflow (see "Git workflow" above) rather than committing
+      everything to `main` directly
+- [ ] Record the video walkthrough: student ID in the first 30 seconds, face + voice
+      throughout, explain the backend/database, demonstrate CRUD on words, show the
+      frontend generating output from stored data (including a non-default difficulty
+      or grid size actually taking effect), show `/health` returning `200`, show the
+      app running in Docker
+- [ ] Remove `node_modules` (and `.next`) before zipping
+- [ ] Include your GitHub repository link
