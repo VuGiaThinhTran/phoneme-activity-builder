@@ -1,0 +1,98 @@
+// Prisma schema for the Phoneme Activity Builder (Assessment 2)
+//
+// Design notes:
+// - `Activity` is one saved, named configuration a teacher creates — either a
+//   Wordle or a Word Search — and is the unit that gets listed, edited, and
+//   deleted. This is what lets the app "store and retrieve multiple activity
+//   configurations".
+// - `Word` belongs to an `Activity` and holds the real spelling + optional hint.
+// - `PhonemeSegment` stores ONE phoneme token per row, with an explicit
+//   `position` column for ordering. This is deliberate: phoneme symbols like
+//   "tʃ", "eː", or "æɪ" are more than one Unicode character, so packing them
+//   into a single delimited string (e.g. splitting on character index) would
+//   corrupt multi-character phonemes. A child table with one row per token —
+//   ordered by `position` — stores each phoneme exactly as a single, intact
+//   unit regardless of its character length.
+//
+// The phoneme *reference* table itself (the fixed IPA keyboard — symbol,
+// label, example word) is NOT stored here. It's static, unchanging content
+// (the same 43-symbol HCE keyboard for every teacher), so per the assessment
+// clarification it stays as a constant in the frontend code
+// (lib/phonemes.tsx) rather than being duplicated into the database — only
+// the *dynamic* word lists teachers create are persisted.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum ActivityType {
+  WORDLE
+  WORD_SEARCH
+}
+
+enum Difficulty {
+  EASY
+  NORMAL
+  HARD
+}
+
+/// One saved, named activity configuration a teacher has created.
+model Activity {
+  id           String       @id @default(cuid())
+  name         String
+  activityType ActivityType
+  difficulty   Difficulty   @default(NORMAL)
+
+  /// Word Search only — grid dimensions. Null for Wordle activities.
+  gridRows     Int?
+  gridCols     Int?
+
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  words        Word[]
+
+  @@map("activities")
+}
+
+/// A single word within an activity's word list.
+model Word {
+  id         String   @id @default(cuid())
+  activityId String
+  activity   Activity @relation(fields: [activityId], references: [id], onDelete: Cascade)
+
+  english    String
+  hint       String?
+
+  /// Position of this word within its activity's word list (for stable ordering).
+  orderIndex Int      @default(0)
+
+  phonemes   PhonemeSegment[]
+
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([activityId])
+  @@map("words")
+}
+
+/// A single phoneme token belonging to a word, e.g. "tʃ", "ɪ", "n" for "chin".
+/// One row per phoneme — `ipa` is a variable-length string so multi-character
+/// symbols are stored intact, and `position` preserves the token order.
+model PhonemeSegment {
+  id       String @id @default(cuid())
+  wordId   String
+  word     Word   @relation(fields: [wordId], references: [id], onDelete: Cascade)
+
+  ipa      String
+  position Int
+
+  @@unique([wordId, position])
+  @@index([wordId])
+  @@map("phoneme_segments")
+}
