@@ -12,6 +12,7 @@ import {
   formatPhonemeWordList,
 } from "@/lib/phonemes";
 import { buildWordleHtml } from "@/lib/exportHtml";
+import { ApiActivitySummary, ApiError, fetchActivities, fetchActivity } from "@/lib/api-client";
 
 type Difficulty = "easy" | "normal" | "hard";
 
@@ -70,6 +71,48 @@ export default function WordlePage() {
   const [wordsText, setWordsText] = useState(formatPhonemeWordList(WORDLE_PRESETS));
   const [difficulty, setDifficulty] = useState<Difficulty>("normal");
   const [seed, setSeed] = useState(1);
+
+  // Saved activities loaded from the backend (Assessment 2) — the teacher
+  // can pull a stored word list into the builder instead of typing/pasting
+  // one, so generated output can be driven by database content.
+  const [savedActivities, setSavedActivities] = useState<ApiActivitySummary[]>([]);
+  const [selectedActivityId, setSelectedActivityId] = useState("");
+  const [loadingActivity, setLoadingActivity] = useState(false);
+  const [activityLoadError, setActivityLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetchActivities()
+      .then((all) => setSavedActivities(all.filter((a) => a.activityType === "WORDLE")))
+      .catch(() => setActivityLoadError("Couldn't reach the backend to list saved activities."));
+  }, []);
+
+  async function handleLoadActivity() {
+    if (!selectedActivityId) return;
+    setLoadingActivity(true);
+    setActivityLoadError(null);
+    try {
+      const activity = await fetchActivity(selectedActivityId);
+      if (activity.words.length === 0) {
+        // Loading an empty word list into an empty textarea would silently fall
+        // back to the default corpus (see `pool` below) — which looks like the
+        // load worked but is actually showing unrelated content. Tell the
+        // teacher plainly instead of pretending nothing's wrong.
+        setActivityLoadError(
+          `"${activity.name}" has no words yet — add some on the Manage page first.`
+        );
+        return;
+      }
+      setWordsText(formatPhonemeWordList(activity.words));
+      // The activity's own stored difficulty should drive the builder too —
+      // not just its word list — so loading it fully restores how the
+      // teacher configured it, not only the words.
+      setDifficulty(activity.difficulty.toLowerCase() as Difficulty);
+    } catch (err) {
+      setActivityLoadError(err instanceof ApiError ? err.message : "Couldn't load that activity.");
+    } finally {
+      setLoadingActivity(false);
+    }
+  }
 
   const pool: PhonemeWord[] = useMemo(() => {
     const parsed = parsePhonemeWordList(wordsText);
@@ -240,6 +283,44 @@ export default function WordlePage() {
 
       <aside className="rounded-lg border-2 p-5 h-fit" style={{ borderColor: "var(--line)" }}>
         <h1 className="font-display text-xl font-bold">Wordle builder</h1>
+
+        <div className="mt-5 rounded-md border-2 p-3" style={{ borderColor: "var(--line)" }}>
+          <label className="block text-sm font-semibold mb-1" htmlFor="load-activity">
+            Load a saved word list
+          </label>
+          <div className="flex gap-2">
+            <select
+              id="load-activity"
+              value={selectedActivityId}
+              onChange={(e) => setSelectedActivityId(e.target.value)}
+              className="flex-1 rounded-md border-2 p-2 text-sm"
+              style={{ borderColor: "var(--line)", background: "var(--surface)", color: "var(--ink)" }}
+            >
+              <option value="">
+                {savedActivities.length === 0 ? "No saved Wordle activities yet" : "Choose an activity…"}
+              </option>
+              {savedActivities.map((a) => (
+                <option key={a.id} value={a.id}>
+                  {a.name} ({a.wordCount} words)
+                </option>
+              ))}
+            </select>
+            <button
+              type="button"
+              onClick={handleLoadActivity}
+              disabled={!selectedActivityId || loadingActivity}
+              className={`rounded-md px-3 py-2 text-sm font-semibold text-white disabled:opacity-50 ${BTN}`}
+              style={{ background: "var(--teal)" }}
+            >
+              {loadingActivity ? "Loading…" : "Load"}
+            </button>
+          </div>
+          {activityLoadError && <p className="text-xs mt-1" style={{ color: "var(--coral)" }}>{activityLoadError}</p>}
+          <p className="text-xs opacity-60 mt-1">
+            Manage saved word lists on the <a href="/manage" className="underline">Manage</a> page — this pulls
+            straight from the database.
+          </p>
+        </div>
 
         <label className="block mt-5 text-sm font-semibold" htmlFor="wordle-words">
           Word list (phonemes = spelling, optional hint after |)

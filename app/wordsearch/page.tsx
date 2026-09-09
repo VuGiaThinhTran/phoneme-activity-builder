@@ -5,6 +5,7 @@ import type { KeyboardEvent as ReactKeyboardEvent } from "react";
 import { WORD_SEARCH_LIST, findPhoneme, parsePhonemeWordList, formatPhonemeWordList, PhonemeWord } from "@/lib/phonemes";
 import { buildWordSearch } from "@/lib/wordsearch";
 import { buildWordSearchHtml } from "@/lib/exportHtml";
+import { ApiActivitySummary, ApiError, fetchActivities, fetchActivity } from "@/lib/api-client";
 
 const BTN = "cursor-pointer transition-all duration-150 hover:-translate-y-0.5 hover:shadow-md active:translate-y-0 active:shadow-none";
 
@@ -19,6 +20,41 @@ export default function WordSearchPage() {
   const [selection, setSelection] = useState<string[]>([]);
   const [banner, setBanner] = useState<{ type: "win" | "lose" | "tip"; text: string } | null>(null);
   const startRef = useRef<{ r: number; c: number } | null>(null);
+
+  // Saved activities loaded from the backend (Assessment 2).
+  const [savedActivities, setSavedActivities] = useState<ApiActivitySummary[]>([]);
+  const [selectedActivityId, setSelectedActivityId] = useState("");
+  const [loadingActivity, setLoadingActivity] = useState(false);
+  const [activityLoadError, setActivityLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetchActivities()
+      .then((all) => setSavedActivities(all.filter((a) => a.activityType === "WORD_SEARCH")))
+      .catch(() => setActivityLoadError("Couldn't reach the backend to list saved activities."));
+  }, []);
+
+  async function handleLoadActivity() {
+    if (!selectedActivityId) return;
+    setLoadingActivity(true);
+    setActivityLoadError(null);
+    try {
+      const activity = await fetchActivity(selectedActivityId);
+      if (activity.words.length === 0) {
+        setActivityLoadError(
+          `"${activity.name}" has no words yet — add some on the Manage page first.`
+        );
+        return;
+      }
+      setWordsText(formatPhonemeWordList(activity.words));
+      if (activity.gridRows) setRows(activity.gridRows);
+      if (activity.gridCols) setCols(activity.gridCols);
+      setFound(new Set());
+    } catch (err) {
+      setActivityLoadError(err instanceof ApiError ? err.message : "Couldn't load that activity.");
+    } finally {
+      setLoadingActivity(false);
+    }
+  }
 
   const words: PhonemeWord[] = useMemo(() => {
     const parsed = parsePhonemeWordList(wordsText);
@@ -185,6 +221,43 @@ export default function WordSearchPage() {
 
       <aside className="rounded-lg border-2 p-5 h-fit" style={{ borderColor: "var(--line)" }}>
         <h1 className="font-display text-xl font-bold">Word Search builder</h1>
+
+        <div className="mt-6 rounded-md border-2 p-3" style={{ borderColor: "var(--line)" }}>
+          <label className="block text-sm font-semibold mb-1" htmlFor="load-activity">
+            Load a saved word list
+          </label>
+          <div className="flex gap-2">
+            <select
+              id="load-activity"
+              value={selectedActivityId}
+              onChange={(e) => setSelectedActivityId(e.target.value)}
+              className="flex-1 rounded-md border-2 p-2 text-sm"
+              style={{ borderColor: "var(--line)", background: "var(--surface)", color: "var(--ink)" }}
+            >
+              <option value="">
+                {savedActivities.length === 0 ? "No saved Word Search activities yet" : "Choose an activity…"}
+              </option>
+              {savedActivities.map((a) => (
+                <option key={a.id} value={a.id}>
+                  {a.name} ({a.wordCount} words)
+                </option>
+              ))}
+            </select>
+            <button
+              type="button"
+              onClick={handleLoadActivity}
+              disabled={!selectedActivityId || loadingActivity}
+              className={`rounded-md px-3 py-2 text-sm font-semibold text-white disabled:opacity-50 ${BTN}`}
+              style={{ background: "var(--teal)" }}
+            >
+              {loadingActivity ? "Loading…" : "Load"}
+            </button>
+          </div>
+          {activityLoadError && <p className="text-xs mt-1" style={{ color: "var(--coral)" }}>{activityLoadError}</p>}
+          <p className="text-xs opacity-60 mt-1">
+            Manage saved word lists on the <a href="/manage" className="underline">Manage</a> page.
+          </p>
+        </div>
 
         <label className="block mt-6 text-sm font-semibold" htmlFor="words">
           Words (space-separated phonemes)
