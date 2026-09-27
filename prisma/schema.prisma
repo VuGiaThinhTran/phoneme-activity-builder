@@ -96,3 +96,41 @@ model PhonemeSegment {
   @@index([wordId])
   @@map("phoneme_segments")
 }
+
+// --- Assessment 3: observability & reporting ------------------------------
+//
+// These two tables back the dashboard's operational metrics. Neither is
+// user-facing content (unlike Activity/Word/PhonemeSegment) — they're a log
+// of *events* the app records about its own usage, which is exactly what
+// "database-backed metrics" for a dashboard means: real rows, not numbers
+// made up on page load.
+
+/// One row per attempt to generate a downloadable Wordle/Word Search HTML
+/// file — whether it succeeded or failed (e.g. empty word list, invalid
+/// phoneme data). This is what "successful generation count" and "failed
+/// generation count" on the dashboard actually count.
+model GenerationEvent {
+  id           String       @id @default(cuid())
+  activityType ActivityType
+  success      Boolean
+  errorMessage String?
+  wordCount    Int          @default(0)
+  createdAt    DateTime     @default(now())
+
+  @@index([activityType])
+  @@index([success])
+  @@map("generation_events")
+}
+
+/// One row per page visit's measured duration, reported by the frontend when
+/// a builder page is left (tab closed, navigated away, or hidden). Backs the
+/// dashboard's "average time on page" metric.
+model PageViewMetric {
+  id         String   @id @default(cuid())
+  page       String
+  durationMs Int
+  createdAt  DateTime @default(now())
+
+  @@index([page])
+  @@map("page_view_metrics")
+}
