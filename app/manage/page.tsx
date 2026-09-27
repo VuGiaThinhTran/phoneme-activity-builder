@@ -93,6 +93,10 @@ export default function ManagePage() {
   }
 
   useEffect(() => {
+    // Fetch-on-mount: reloadActivities is async and setState only fires once
+    // the request resolves — the legitimate "sync from an external system"
+    // case the rule intends to allow.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     reloadActivities();
   }, []);
 
@@ -341,7 +345,7 @@ export default function ManagePage() {
           <button
             type="submit"
             disabled={creating}
-            className={`rounded-md px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60 ${BTN}`}
+            className={`rounded-md px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-70 ${BTN}`}
             style={{ background: "var(--teal)" }}
           >
             {creating ? "Creating…" : "+ Create activity"}
@@ -350,10 +354,10 @@ export default function ManagePage() {
 
         <div className="mt-8">
           <p className="text-sm font-semibold mb-2">Saved activities</p>
-          {loadingList && <p className="text-sm opacity-60">Loading…</p>}
+          {loadingList && <p className="text-sm opacity-70">Loading…</p>}
           {listError && <ErrorBanner message={listError} />}
           {!loadingList && !listError && activities.length === 0 && (
-            <p className="text-sm opacity-60">No activities yet — create one above.</p>
+            <p className="text-sm opacity-70">No activities yet — create one above.</p>
           )}
           <ul className="space-y-2">
             {activities.map((a) => (
@@ -368,7 +372,7 @@ export default function ManagePage() {
                   }}
                 >
                   <div className="font-semibold">{a.name}</div>
-                  <div className="opacity-60 text-xs mt-0.5">
+                  <div className="opacity-70 text-xs mt-0.5">
                     {a.activityType === "WORDLE" ? "Wordle" : "Word Search"} · {a.wordCount} word
                     {a.wordCount === 1 ? "" : "s"} · {a.difficulty.toLowerCase()}
                   </div>
@@ -381,12 +385,12 @@ export default function ManagePage() {
 
       <section>
         {!selectedId && (
-          <p className="text-sm opacity-60 mt-10 text-center">
+          <p className="text-sm opacity-70 mt-10 text-center">
             Select an activity on the left, or create a new one, to manage its word list.
           </p>
         )}
 
-        {selectedId && !selected && !detailError && <p className="text-sm opacity-60">Loading activity…</p>}
+        {selectedId && !selected && !detailError && <p className="text-sm opacity-70">Loading activity…</p>}
         {detailError && <ErrorBanner message={detailError.message} fields={detailError.fields} />}
 
         {selected && (
@@ -496,7 +500,7 @@ export default function ManagePage() {
                       <button
                         type="submit"
                         disabled={savingActivity}
-                        className={`rounded-md px-4 py-2 text-sm font-semibold text-white disabled:opacity-60 ${BTN}`}
+                        className={`rounded-md px-4 py-2 text-sm font-semibold text-white disabled:opacity-70 ${BTN}`}
                         style={{ background: "var(--teal)" }}
                       >
                         {savingActivity ? "Saving…" : "Save"}
@@ -543,7 +547,7 @@ export default function ManagePage() {
               <button
                 type="submit"
                 disabled={addingWord}
-                className={`rounded-md px-4 py-2 text-sm font-semibold text-white disabled:opacity-60 ${BTN}`}
+                className={`rounded-md px-4 py-2 text-sm font-semibold text-white disabled:opacity-70 ${BTN}`}
                 style={{ background: "var(--teal)" }}
               >
                 {addingWord ? "Adding…" : "Add"}
@@ -554,7 +558,7 @@ export default function ManagePage() {
               Word list ({selected.words.length})
             </h3>
             {selected.words.length === 0 ? (
-              <p className="text-sm opacity-60 mt-2">No words yet — add one above.</p>
+              <p className="text-sm opacity-70 mt-2">No words yet — add one above.</p>
             ) : (
               <ul className="mt-3 space-y-2">
                 {selected.words.map((w) => (
@@ -620,7 +624,7 @@ export default function ManagePage() {
                               );
                             })}
                           </span>
-                          {w.hint && <p className="text-xs opacity-60 mt-1">💡 {w.hint}</p>}
+                          {w.hint && <p className="text-xs opacity-70 mt-1">💡 {w.hint}</p>}
                         </div>
                         <div className="flex gap-2 shrink-0">
                           <button

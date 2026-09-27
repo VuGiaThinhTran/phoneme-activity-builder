@@ -22,6 +22,7 @@ export default function PhonemeTile({ ipa, state, size = 56 }: PhonemeTileProps)
       style={{ width: size, height: size, fontSize: size * 0.32 }}
       data-state={state}
       tabIndex={info ? 0 : -1}
+      role="img"
       aria-label={info ? `${info.label}, phoneme /${info.ipa}/, as in ${info.example}` : "empty tile"}
     >
       {info ? info.label : ipa}

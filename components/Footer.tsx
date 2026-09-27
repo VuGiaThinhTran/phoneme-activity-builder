@@ -4,7 +4,7 @@ export default function Footer() {
       <p className="opacity-70">
         Vu Gia Thinh Tran · Student Number: 22955225
       </p>
-      <p className="opacity-50 mt-1">Assessment 2 — Backend Implementation and Database Integration</p>
+      <p className="opacity-70 mt-1">Assessment 3 — Data-Driven Reporting, Observability and Testing</p>
     </footer>
   );
 }

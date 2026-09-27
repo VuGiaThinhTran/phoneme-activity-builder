@@ -3,8 +3,8 @@ import { buildWordSearch } from "./wordsearch";
 
 function sharedStyle(darkMode: boolean): string {
   const vars = darkMode
-    ? "--ink:#eef2f2;--bg:#0f1720;--surface:#16202b;--teal:#3fa79e;--teal-strong:#6cc6bd;--teal-soft:#17332f;--coral:#f0906a;--line:#263241;"
-    : "--ink:#16213e;--bg:#f3f6f6;--surface:#ffffff;--teal:#0f6b66;--teal-strong:#0a4d49;--teal-soft:#dcf1ef;--coral:#e8734a;--line:#d8e2e1;";
+    ? "--ink:#eef2f2;--bg:#0f1720;--surface:#16202b;--teal:#3fa79e;--teal-strong:#6cc6bd;--teal-soft:#17332f;--coral:#f0906a;--coral-strong:#b8451f;--line:#263241;"
+    : "--ink:#16213e;--bg:#f3f6f6;--surface:#ffffff;--teal:#0f6b66;--teal-strong:#0a4d49;--teal-soft:#dcf1ef;--coral:#e8734a;--coral-strong:#b8451f;--line:#d8e2e1;";
   return `
   :root{${vars}}
   *{box-sizing:border-box;}
@@ -13,7 +13,7 @@ function sharedStyle(darkMode: boolean): string {
   header h1{margin:0;font-family:Georgia,serif;font-size:1.4rem;}
   header p{margin:4px 0 0;font-size:.85rem;opacity:.75;}
   main{max-width:760px;margin:0 auto;padding:28px 20px 60px;}
-  footer{text-align:center;font-size:.78rem;opacity:.6;padding:20px;}
+  footer{text-align:center;font-size:.78rem;opacity:.75;padding:20px;}
   button{font:inherit;cursor:pointer;}
 `;
 }
@@ -271,7 +271,7 @@ ${sharedStyle(darkMode)}
 .tile{position:relative;width:56px;height:56px;border:2px solid var(--line);border-radius:8px;background:var(--surface);
   display:flex;align-items:center;justify-content:center;font-weight:700;font-size:1rem;font-family:ui-monospace,monospace;}
 .tile[data-state="correct"]{background:var(--teal);border-color:var(--teal);color:#fff;}
-.tile[data-state="present"]{background:var(--coral);border-color:var(--coral);color:#fff;}
+.tile[data-state="present"]{background:var(--coral-strong);border-color:var(--coral-strong);color:#fff;}
 .tile[data-state="absent"]{opacity:.5;}
 .tile[data-state="hint"]{border-style:dashed;}
 .tile .tip{position:absolute;bottom:105%;left:50%;transform:translateX(-50%);background:var(--ink);color:#fff;
@@ -289,8 +289,8 @@ ${sharedStyle(darkMode)}
 .controls button:hover{transform:translateY(-2px);}
 .controls button#backspace{background:var(--line);color:var(--ink);}
 .controls button#restart{background:var(--surface);color:var(--ink);border:2px solid var(--line);}
-#clue{text-align:center;font-weight:600;background:#fbe4d8;border-radius:8px;padding:8px 14px;margin:0 auto 18px;max-width:560px;}
-.kb-hint{text-align:center;font-size:.78rem;opacity:.6;margin:0 auto 14px;max-width:640px;}
+#clue{text-align:center;font-weight:600;background:#fbe4d8;color:#5c3a24;border-radius:8px;padding:8px 14px;margin:0 auto 18px;max-width:560px;}
+.kb-hint{text-align:center;font-size:.78rem;opacity:.75;margin:0 auto 14px;max-width:640px;}
 @keyframes shake-row{10%,90%{transform:translateX(-2px);}20%,80%{transform:translateX(4px);}30%,50%,70%{transform:translateX(-8px);}40%,60%{transform:translateX(8px);}}
 .shake{animation:shake-row .5s;}
 @keyframes banner-in{from{opacity:0;transform:translate(-50%,-14px);}to{opacity:1;transform:translate(-50%,0);}}
@@ -298,7 +298,7 @@ ${sharedStyle(darkMode)}
   box-shadow:0 8px 24px rgba(0,0,0,.18);animation:banner-in .25s ease-out;}
 .feedback-banner.win{background:var(--teal);color:#fff;}
 .feedback-banner.lose{background:#dc2626;color:#fff;}
-.feedback-banner.tip{background:var(--ink);color:#f3f6f6;}
+.feedback-banner.tip{background:#1f2937;color:#f3f6f6;}
 details.answer-key{margin-top:36px;border:2px solid var(--line);border-radius:8px;padding:12px 16px;}
 details.answer-key summary{cursor:pointer;font-weight:700;}
 table.answer-table{width:100%;border-collapse:collapse;margin-top:10px;font-size:.85rem;}
@@ -314,7 +314,7 @@ table.answer-table td.mono{font-family:ui-monospace,monospace;}
   <p class="kb-hint">⌨️ Keyboard: type P T K B D G N M F S V Z L R W J H directly, Shift+N/T/D/S/Z/C/J
     for NG/TH/TH/SH/ZH/CH/J. Vowels have no letter shortcut — Tab + arrow keys + Enter/Space.
     Enter submits, Backspace deletes.</p>
-  <div id="board" role="grid" aria-label="Wordle board"></div>
+  <div id="board" role="group" aria-label="Wordle board"></div>
   <div class="keyboard-wrap">
     <div class="keys" aria-label="Phoneme keyboard">
       ${KEYBOARD_ROWS.map((row, i) => phonemeKeyRow(row, shortcutByIpa, i)).join("\n")}
@@ -526,7 +526,7 @@ ${sharedStyle(darkMode)}
   cursor:pointer;transition:transform .1s ease,box-shadow .1s ease;position:relative;}
 .cell:hover{transform:scale(1.1);box-shadow:0 4px 10px rgba(0,0,0,.12);z-index:1;}
 .cell:focus-visible{outline:3px solid var(--teal);outline-offset:2px;z-index:2;}
-.cell.sel{background:var(--coral);color:#fff;}
+.cell.sel{background:var(--coral-strong);color:#fff;}
 .cell.found{background:var(--teal);color:#fff;}
 .cell.answer{border:2.5px dashed var(--teal-strong) !important;background:var(--teal-soft);}
 .wordlist{list-style:none;margin:22px 0 0;padding:0;display:flex;flex-wrap:wrap;gap:12px;justify-content:center;}
@@ -543,7 +543,7 @@ ${sharedStyle(darkMode)}
   box-shadow:0 8px 24px rgba(0,0,0,.18);animation:banner-in .25s ease-out;}
 .feedback-banner.win{background:var(--teal);color:#fff;}
 .feedback-banner.lose{background:#dc2626;color:#fff;}
-.feedback-banner.tip{background:var(--ink);color:#f3f6f6;}
+.feedback-banner.tip{background:#1f2937;color:#f3f6f6;}
 </style>
 </head>
 <body>
@@ -553,7 +553,7 @@ ${sharedStyle(darkMode)}
   <p class="kb-hint">⌨️ Keyboard support: Tab to a tile, arrow keys to move (Left/Right continue onto
     the next/previous row at the edge), Enter/Space to mark the start of a word and again to check
     it, Escape to cancel.</p>
-  <div id="grid" role="grid" aria-label="Word search grid"></div>
+  <div id="grid" role="group" aria-label="Word search grid"></div>
   <div class="toolbar"><button id="toggle-answers" type="button">${revealAnswers ? "Hide answers" : "Show answers"}</button></div>
   <ul class="wordlist">${phonemeList}</ul>
   <p id="status" role="status" aria-live="polite"></p>
