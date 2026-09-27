@@ -5,3 +5,7 @@ out/
 .DS_Store
 .env
 .env.local
+playwright-report/
+test-results/
+.idea/
+.vscode/
