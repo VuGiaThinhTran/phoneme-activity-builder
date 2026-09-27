@@ -9,23 +9,25 @@
     "lint": "eslint",
     "postinstall": "prisma generate",
     "migrate": "prisma migrate deploy",
-    "migrate:dev": "prisma migrate dev"
+    "migrate:dev": "prisma migrate dev",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "@prisma/client": "6.19.3",
-    "next": "16.2.12",
+    "next": "16.3.6",
     "prisma": "6.19.3",
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "zod": "^4.5.4"
   },
   "devDependencies": {
+    "@playwright/test": "1.56.0",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^26.1.2",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.4",
     "eslint": "^9",
-    "eslint-config-next": "16.2.12",
+    "eslint-config-next": "16.3.6",
     "tailwindcss": "^4",
     "typescript": "^6.0.3"
   }
