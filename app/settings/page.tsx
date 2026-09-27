@@ -18,9 +18,15 @@ export default function Settings() {
   const [reduceMotion, setReduceMotion] = useState(false);
 
   useEffect(() => {
+    // Both values below are read from outside React (a cookie, and a class
+    // applied to <html> before hydration) and can only be known after mount —
+    // this is the "sync from an external system" case the rule intends to
+    // allow, not an accidental synchronous update.
+    /* eslint-disable react-hooks/set-state-in-effect */
     const savedLayout = readCookie("layout");
     if (savedLayout === "compact" || savedLayout === "comfortable") setLayout(savedLayout);
     setReduceMotion(document.documentElement.classList.contains("reduce-motion"));
+    /* eslint-enable react-hooks/set-state-in-effect */
   }, []);
 
   function chooseLayout(value: Layout) {

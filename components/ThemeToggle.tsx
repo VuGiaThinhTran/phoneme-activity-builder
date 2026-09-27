@@ -12,7 +12,10 @@ export default function ThemeToggle() {
   const [theme, setTheme] = useState<Theme>("light");
 
   useEffect(() => {
+    // Same reasoning as Navbar.tsx: the actual theme is a server-set class on
+    // <html>, so it can only be read back into state after mount.
     const current: Theme = document.documentElement.classList.contains("dark") ? "dark" : "light";
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setTheme(current);
   }, []);
 

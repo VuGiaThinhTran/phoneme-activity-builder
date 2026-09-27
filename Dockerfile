@@ -1,8 +1,9 @@
 # syntax=docker/dockerfile:1
 
+# ---------------------------------------------------------------------------
 # Stage 1 — deps: install all dependencies (including devDependencies, since
 # the Prisma CLI and TypeScript are needed to build).
-
+# ---------------------------------------------------------------------------
 FROM node:20-slim AS deps
 WORKDIR /app
 
@@ -14,8 +15,9 @@ COPY package.json package-lock.json ./
 COPY prisma ./prisma
 RUN npm ci
 
+# ---------------------------------------------------------------------------
 # Stage 2 — builder: generate the Prisma Client and build the Next.js app.
-
+# ---------------------------------------------------------------------------
 FROM node:20-slim AS builder
 WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends openssl \
@@ -27,10 +29,12 @@ COPY . .
 RUN npx prisma generate
 RUN npm run build
 
+# ---------------------------------------------------------------------------
 # Stage 3 — runner: the actual image that ships. Keeps the full node_modules
 # (simpler and more reliable than trying to hand-pick which Prisma engine
 # files survive Next's standalone-output tracing) but drops build-only
 # system packages and runs as a non-root user.
+# ---------------------------------------------------------------------------
 FROM node:20-slim AS runner
 WORKDIR /app
 

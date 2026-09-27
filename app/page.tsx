@@ -29,7 +29,7 @@ export default function Home() {
         </div>
 
         <div className="rounded-xl border-2 p-6" style={{ borderColor: "var(--line)", background: "var(--surface)" }}>
-          <p className="text-xs font-mono uppercase opacity-60 mb-3">Preview — target phoneme word</p>
+          <p className="text-xs font-mono uppercase opacity-70 mb-3">Preview — target phoneme word</p>
           <div className="flex gap-2 justify-center">
             {["ʃ", "ɪ", "p"].map((ipa) => (
               <PhonemeTile key={ipa} ipa={ipa} size={56} />
