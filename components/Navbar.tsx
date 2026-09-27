@@ -13,6 +13,7 @@ const PRIMARY_LINKS = [
 
 const MENU_LINKS = [
   { href: "/manage", label: "Manage" },
+  { href: "/dashboard", label: "Dashboard" },
   { href: "/about", label: "About" },
   { href: "/settings", label: "Settings" },
 ];
@@ -34,6 +35,10 @@ export default function Navbar() {
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
+    // Theme is applied as a class on <html> server-side from a cookie (see
+    // layout.tsx); reading it back here, after mount, is how this component
+    // learns which icon to show without duplicating that cookie-read logic.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setIsDark(document.documentElement.classList.contains("dark"));
   }, []);
 
@@ -96,7 +101,7 @@ export default function Navbar() {
       aria-label="Primary"
     >
       <div className="max-w-5xl mx-auto px-4 flex items-center justify-between h-16 gap-3">
-        <Link href="/" className="font-display text-lg font-bold flex items-center gap-2 shrink-0">
+        <Link href="/" className="font-display text-lg font-bold flex items-center gap-2 shrink-0" aria-label="Phoneme Builder — Home">
           <span
             className="inline-flex h-8 w-8 items-center justify-center rounded-md font-mono text-sm text-white"
             style={{ background: "var(--teal)" }}
@@ -104,7 +109,7 @@ export default function Navbar() {
           >
             ʃ
           </span>
-          <span className="hidden sm:inline">Phoneme Builder</span>
+          <span className="hidden sm:inline" aria-hidden="true">Phoneme Builder</span>
         </Link>
 
         <div className="flex items-center gap-1 overflow-x-auto">

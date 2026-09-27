@@ -106,6 +106,30 @@ export type ActivityInput = z.infer<typeof baseActivitySchema>;
 export const activityUpdateSchema = baseActivitySchema.partial();
 export type ActivityUpdateInput = z.infer<typeof activityUpdateSchema>;
 
+// --- Assessment 3: observability -------------------------------------------
+
+export const generationEventSchema = z.object({
+  activityType: activityTypeSchema,
+  success: z.boolean(),
+  errorMessage: z.string().trim().max(500).optional(),
+  wordCount: z.number().int().min(0).optional(),
+});
+export type GenerationEventInput = z.infer<typeof generationEventSchema>;
+
+export const pageViewMetricSchema = z.object({
+  page: z
+    .string()
+    .trim()
+    .min(1, "page is required.")
+    .max(40, "page name looks too long."),
+  durationMs: z
+    .number()
+    .int()
+    .min(0, "durationMs can't be negative.")
+    .max(1000 * 60 * 60 * 6, "durationMs looks implausibly large (over 6 hours)."),
+});
+export type PageViewMetricInput = z.infer<typeof pageViewMetricSchema>;
+
 // --- Error formatting --------------------------------------------------------
 
 /** Flattens a ZodError into a simple, readable { field: [messages] } shape for API responses. */

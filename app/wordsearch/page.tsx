@@ -6,6 +6,7 @@ import { WORD_SEARCH_LIST, findPhoneme, parsePhonemeWordList, formatPhonemeWordL
 import { buildWordSearch } from "@/lib/wordsearch";
 import { buildWordSearchHtml } from "@/lib/exportHtml";
 import { ApiActivitySummary, ApiError, fetchActivities, fetchActivity } from "@/lib/api-client";
+import { logGenerationEvent, reportPageViewOnLeave } from "@/lib/metrics-client";
 
 const BTN = "cursor-pointer transition-all duration-150 hover:-translate-y-0.5 hover:shadow-md active:translate-y-0 active:shadow-none";
 
@@ -20,6 +21,9 @@ export default function WordSearchPage() {
   const [selection, setSelection] = useState<string[]>([]);
   const [banner, setBanner] = useState<{ type: "win" | "lose" | "tip"; text: string } | null>(null);
   const startRef = useRef<{ r: number; c: number } | null>(null);
+  const [generateWarning, setGenerateWarning] = useState<string | null>(null);
+
+  useEffect(() => reportPageViewOnLeave("wordsearch"), []);
 
   // Saved activities loaded from the backend (Assessment 2).
   const [savedActivities, setSavedActivities] = useState<ApiActivitySummary[]>([]);
@@ -200,15 +204,33 @@ export default function WordSearchPage() {
   }
 
   function handleDownload() {
-    const darkMode = document.documentElement.classList.contains("dark");
-    const html = buildWordSearchHtml({ words, rows, cols, seed, revealAnswers: showAnswers, darkMode });
-    const blob = new Blob([html], { type: "text/html" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "phoneme-wordsearch.html";
-    a.click();
-    URL.revokeObjectURL(url);
+    setGenerateWarning(null);
+    const typedWords = parsePhonemeWordList(wordsText);
+    if (typedWords.length === 0) {
+      logGenerationEvent({ activityType: "WORD_SEARCH", success: false, errorMessage: "Empty word list", wordCount: 0 });
+      setGenerateWarning("Can't generate — the word list is empty. Add at least one word first.");
+      return;
+    }
+    try {
+      const darkMode = document.documentElement.classList.contains("dark");
+      const html = buildWordSearchHtml({ words, rows, cols, seed, revealAnswers: showAnswers, darkMode });
+      const blob = new Blob([html], { type: "text/html" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "phoneme-wordsearch.html";
+      a.click();
+      URL.revokeObjectURL(url);
+      logGenerationEvent({ activityType: "WORD_SEARCH", success: true, wordCount: words.length });
+    } catch (err) {
+      logGenerationEvent({
+        activityType: "WORD_SEARCH",
+        success: false,
+        errorMessage: err instanceof Error ? err.message : "Unknown error",
+        wordCount: words.length,
+      });
+      setGenerateWarning("Something went wrong generating the file. Please try again.");
+    }
   }
 
   return (
@@ -231,7 +253,7 @@ export default function WordSearchPage() {
               id="load-activity"
               value={selectedActivityId}
               onChange={(e) => setSelectedActivityId(e.target.value)}
-              className="flex-1 rounded-md border-2 p-2 text-sm"
+              className="flex-1 min-w-0 rounded-md border-2 p-2 text-sm"
               style={{ borderColor: "var(--line)", background: "var(--surface)", color: "var(--ink)" }}
             >
               <option value="">
@@ -254,7 +276,8 @@ export default function WordSearchPage() {
             </button>
           </div>
           {activityLoadError && <p className="text-xs mt-1" style={{ color: "var(--coral)" }}>{activityLoadError}</p>}
-          <p className="text-xs opacity-60 mt-1">
+          <p className="text-xs opacity-70 mt-1">
+            {!selectedActivityId && savedActivities.length > 0 && "Select an activity above, then click Load. "}
             Manage saved word lists on the <a href="/manage" className="underline">Manage</a> page.
           </p>
         </div>
@@ -272,7 +295,7 @@ export default function WordSearchPage() {
           style={{ borderColor: "var(--line)", background: "var(--surface)", color: "var(--ink)" }}
           placeholder={"b e d = bed\nʃ ɪ p = ship"}
         />
-        <p className="text-xs opacity-60 mt-1">
+        <p className="text-xs opacity-70 mt-1">
           One word per line: phonemes, then <code>= spelling</code>, e.g. <code>tʃ ɪ n = chin</code>.
           Pre-loaded with 8 words from the HCE corpus, spanning 3-5 phonemes.
         </p>
@@ -336,6 +359,15 @@ export default function WordSearchPage() {
         >
           ⬇ Generate playable .html
         </button>
+        {generateWarning && (
+          <p
+            className="text-xs mt-2 rounded-md border-2 px-3 py-2"
+            style={{ borderColor: "var(--coral)", color: "var(--coral)" }}
+            role="alert"
+          >
+            ⚠️ {generateWarning}
+          </p>
+        )}
 
         <div className="mt-6">
           <p className="text-sm font-semibold mb-2">Word list &amp; phoneme hints</p>
@@ -373,8 +405,8 @@ export default function WordSearchPage() {
       </aside>
 
       <section>
-        <p className="text-xs font-mono uppercase opacity-60 mb-1">Live preview — click/tap and drag across tokens</p>
-        <p className="text-xs opacity-60 mb-3">
+        <p className="text-xs font-mono uppercase opacity-70 mb-1">Live preview — click/tap and drag across tokens</p>
+        <p className="text-xs opacity-70 mb-3">
           ⌨️ Keyboard support: Tab to a tile, arrow keys to move (Left/Right continue onto the
           next/previous row at the edge), Enter/Space to mark the start of a word and again to
           check it, Escape to cancel.

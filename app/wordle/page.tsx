@@ -13,6 +13,7 @@ import {
 } from "@/lib/phonemes";
 import { buildWordleHtml } from "@/lib/exportHtml";
 import { ApiActivitySummary, ApiError, fetchActivities, fetchActivity } from "@/lib/api-client";
+import { logGenerationEvent, reportPageViewOnLeave } from "@/lib/metrics-client";
 
 type Difficulty = "easy" | "normal" | "hard";
 
@@ -71,6 +72,11 @@ export default function WordlePage() {
   const [wordsText, setWordsText] = useState(formatPhonemeWordList(WORDLE_PRESETS));
   const [difficulty, setDifficulty] = useState<Difficulty>("normal");
   const [seed, setSeed] = useState(1);
+  const [generateWarning, setGenerateWarning] = useState<string | null>(null);
+
+  // Assessment 3: report time-on-page for the dashboard's "average time on
+  // page" metric. Fires once when the visitor leaves this page.
+  useEffect(() => reportPageViewOnLeave("wordle"), []);
 
   // Saved activities loaded from the backend (Assessment 2) — the teacher
   // can pull a stored word list into the builder instead of typing/pasting
@@ -130,8 +136,11 @@ export default function WordlePage() {
   const [shakeRow, setShakeRow] = useState<number | null>(null);
   const [banner, setBanner] = useState<{ type: "win" | "lose" | "tip"; text: string } | null>(null);
 
-  // reset the round whenever the word list, difficulty, or session changes
+  // reset the round whenever the word list, difficulty, or session changes —
+  // this genuinely needs to run as a side effect of those values changing,
+  // not during render.
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setGuesses(Array(sessionLength).fill(null));
     setCurrent([]);
     setBanner(null);
@@ -262,15 +271,36 @@ export default function WordlePage() {
   });
 
   function handleGenerate() {
-    const darkMode = document.documentElement.classList.contains("dark");
-    const html = buildWordleHtml({ words: pool, difficulty, darkMode });
-    const blob = new Blob([html], { type: "text/html" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "phoneme-wordle.html";
-    a.click();
-    URL.revokeObjectURL(url);
+    setGenerateWarning(null);
+    const typedWords = parsePhonemeWordList(wordsText);
+    if (typedWords.length === 0) {
+      // An empty word list is exactly the kind of "unusual state" the
+      // dashboard's alerts are meant to surface — log it as a failed
+      // generation rather than silently falling back to the default corpus.
+      logGenerationEvent({ activityType: "WORDLE", success: false, errorMessage: "Empty word list", wordCount: 0 });
+      setGenerateWarning("Can't generate — the word list is empty. Add at least one word first.");
+      return;
+    }
+    try {
+      const darkMode = document.documentElement.classList.contains("dark");
+      const html = buildWordleHtml({ words: pool, difficulty, darkMode });
+      const blob = new Blob([html], { type: "text/html" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "phoneme-wordle.html";
+      a.click();
+      URL.revokeObjectURL(url);
+      logGenerationEvent({ activityType: "WORDLE", success: true, wordCount: pool.length });
+    } catch (err) {
+      logGenerationEvent({
+        activityType: "WORDLE",
+        success: false,
+        errorMessage: err instanceof Error ? err.message : "Unknown error",
+        wordCount: pool.length,
+      });
+      setGenerateWarning("Something went wrong generating the file. Please try again.");
+    }
   }
 
   return (
@@ -293,7 +323,7 @@ export default function WordlePage() {
               id="load-activity"
               value={selectedActivityId}
               onChange={(e) => setSelectedActivityId(e.target.value)}
-              className="flex-1 rounded-md border-2 p-2 text-sm"
+              className="flex-1 min-w-0 rounded-md border-2 p-2 text-sm"
               style={{ borderColor: "var(--line)", background: "var(--surface)", color: "var(--ink)" }}
             >
               <option value="">
@@ -316,7 +346,8 @@ export default function WordlePage() {
             </button>
           </div>
           {activityLoadError && <p className="text-xs mt-1" style={{ color: "var(--coral)" }}>{activityLoadError}</p>}
-          <p className="text-xs opacity-60 mt-1">
+          <p className="text-xs opacity-70 mt-1">
+            {!selectedActivityId && savedActivities.length > 0 && "Select an activity above, then click Load. "}
             Manage saved word lists on the <a href="/manage" className="underline">Manage</a> page — this pulls
             straight from the database.
           </p>
@@ -334,7 +365,7 @@ export default function WordlePage() {
           className="mt-2 w-full rounded-md border-2 p-2 font-mono text-xs"
           style={{ borderColor: "var(--line)", background: "var(--surface)", color: "var(--ink)" }}
         />
-        <p className="text-xs opacity-60 mt-1">
+        <p className="text-xs opacity-70 mt-1">
           One word per line: phonemes, then <code>= spelling</code> (e.g. <code>ʃ ɪ p = ship</code>).
           Comes pre-loaded with the full 90-word HCE corpus (30 each of 3/4/5 phonemes). Each round
           steps through the list, one word per row — Generate bundles the whole list into the file.
@@ -379,18 +410,27 @@ export default function WordlePage() {
         >
           ⬇ Generate playable .html
         </button>
-        <p className="text-xs opacity-60 mt-2">
+        {generateWarning && (
+          <p
+            className="text-xs mt-2 rounded-md border-2 px-3 py-2"
+            style={{ borderColor: "var(--coral)", color: "var(--coral)" }}
+            role="alert"
+          >
+            ⚠️ {generateWarning}
+          </p>
+        )}
+        <p className="text-xs opacity-70 mt-2">
           Downloads one self-contained file with the entire word list and an answer key for the
           teacher — no server needed.
         </p>
       </aside>
 
       <section>
-        <p className="text-xs font-mono uppercase opacity-60 mb-1">Live preview</p>
-        <p className="text-xs opacity-60 mb-3">
+        <p className="text-xs font-mono uppercase opacity-70 mb-1">Live preview</p>
+        <p className="text-xs opacity-70 mb-3">
           ⌨️ Keyboard support: type P T K B D G N M F S V Z L R W J H directly for those sounds, and{" "}
           <kbd className="font-mono">Shift</kbd>+N/T/D/S/Z/C/J for NG/TH/TH/SH/ZH/CH/J. Vowels and
-          diphthongs don't have letter shortcuts (too many to map cleanly) — Tab to any tile/key,
+          diphthongs don&apos;t have letter shortcuts (too many to map cleanly) — Tab to any tile/key,
           then arrow keys to move across the keyboard and Enter/Space to press it. Enter submits,
           Backspace deletes.
         </p>
@@ -454,7 +494,7 @@ export default function WordlePage() {
           <button type="button" onClick={backspace} className={`rounded-md border-2 px-4 py-2 text-sm font-semibold ${BTN}`} style={{ borderColor: "var(--line)" }}>
             ⌫ Back
           </button>
-          <button type="button" onClick={submit} className={`rounded-md px-4 py-2 text-sm font-semibold text-white ${BTN}`} style={{ background: "var(--coral)" }}>
+          <button type="button" onClick={submit} className={`rounded-md px-4 py-2 text-sm font-semibold text-white ${BTN}`} style={{ background: "var(--coral-strong)" }}>
             Submit guess
           </button>
           <button type="button" onClick={restartSession} className={`rounded-md border-2 px-4 py-2 text-sm font-semibold ${BTN}`} style={{ borderColor: "var(--line)" }}>
