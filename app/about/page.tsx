@@ -54,7 +54,7 @@ export default function About() {
       <div className="mt-3 aspect-video rounded-lg border-2 overflow-hidden" style={{ borderColor: "var(--line)" }}>
         <iframe
           className="w-full h-full"
-          src="https://www.youtube.com/embed/V7p9qQZHeyI"
+          src="https://www.youtube.com/embed/zrW7AzJzclA"
           title="Assessment 3 video walkthrough"
           allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
           allowFullScreen
