@@ -1,6 +1,32 @@
 import { PHONEMES, PhonemeWord, KEYBOARD_ROWS } from "./phonemes";
 import { buildWordSearch } from "./wordsearch";
 
+// Teacher-supplied text (a word's spelling, its hint) is embedded directly
+// into a static HTML string below, not rendered through React/JSX — so it
+// gets none of JSX's automatic escaping. Without this, something like
+// `<img src=x onerror=...>` typed as a hint would execute in the browser of
+// anyone who opens the generated file. Escape every user-supplied string
+// before it goes into the markup.
+function escapeHtml(input: string): string {
+  return input
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+// JSON.stringify escapes for JS *string* syntax, but not for the HTML parser
+// reading the surrounding <script> tag — if the JSON contains the literal
+// text "</script>" (e.g. inside a teacher-typed hint), the HTML parser closes
+// the script block right there, and whatever follows in that string gets
+// parsed as new markup, including any further <script> tags it contains.
+// Escaping every "<" to its unicode form defeats that without changing the
+// JS-level meaning of the string once parsed.
+function safeJsonForScript(value: unknown): string {
+  return JSON.stringify(value).replace(/</g, "\\u003c");
+}
+
 function sharedStyle(darkMode: boolean): string {
   const vars = darkMode
     ? "--ink:#eef2f2;--bg:#0f1720;--surface:#16202b;--teal:#3fa79e;--teal-strong:#6cc6bd;--teal-soft:#17332f;--coral:#f0906a;--coral-strong:#b8451f;--line:#263241;"
@@ -61,18 +87,27 @@ export function buildWordleHtml({ words, difficulty, darkMode = false }: WordleE
           return p.label;
         })
         .join(" · ");
-      return `<tr><td>${w.english.toUpperCase()}</td><td class="mono">${tags}</td><td>${w.hint ?? ""}</td></tr>`;
+      return `<tr><td>${escapeHtml(w.english.toUpperCase())}</td><td class="mono">${escapeHtml(tags)}</td><td>${escapeHtml(w.hint ?? "")}</td></tr>`;
     })
     .join("");
 
   const script = `
-    const DATA = ${JSON.stringify(data)};
-    const PHONEME_INFO = ${JSON.stringify(
+    const DATA = ${safeJsonForScript(data)};
+    const PHONEME_INFO = ${safeJsonForScript(
       PHONEMES.reduce<Record<string, { label: string; example: string }>>((acc, p) => {
         acc[p.ipa] = { label: p.label, example: p.example };
         return acc;
       }, {})
     )};
+
+    // A teacher's own phoneme tokens (DATA.words[i].phonemes) can, in
+    // principle, be anything up to 4 characters — validation only checks
+    // length, not content. Escape before ever putting one into innerHTML
+    // below, since — unlike the English spelling and hint — these still
+    // reach the DOM after DATA has been parsed back into a live object.
+    function escHtml(s){
+      return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+    }
 
     function seededOrder(poolSize, length, seed){
       const base = Array.from({length: poolSize}, (_, i) => i);
@@ -141,7 +176,7 @@ export function buildWordleHtml({ words, difficulty, darkMode = false }: WordleE
           }
           if(state) cell.setAttribute('data-state', state);
           const info = PHONEME_INFO[tok];
-          cell.innerHTML = tok ? ((info ? info.label : tok) + (info ? '<span class="tip">/'+tok+'/ &middot; as in '+info.example+'</span>' : '')) : '';
+          cell.innerHTML = tok ? ((info ? escHtml(info.label) : escHtml(tok)) + (info ? '<span class="tip">/'+escHtml(tok)+'/ &middot; as in '+escHtml(info.example)+'</span>' : '')) : '';
           row.appendChild(cell);
         });
         board.appendChild(row);
@@ -365,10 +400,10 @@ export function buildWordSearchHtml({
       const tags = w.phonemes
         .map((ipa) => {
           const p = PHONEMES.find((x) => x.ipa === ipa) || { label: ipa, example: "" };
-          return `<span class="ptag" title="/${ipa}/ as in ${p.example}">${p.label}</span>`;
+          return `<span class="ptag" title="/${escapeHtml(ipa)}/ as in ${escapeHtml(p.example)}">${escapeHtml(p.label)}</span>`;
         })
         .join("");
-      return `<li data-word="${w.phonemes.join(" ")}"><strong>${w.english.toUpperCase()}</strong> ${tags}</li>`;
+      return `<li data-word="${escapeHtml(w.phonemes.join(" "))}"><strong>${escapeHtml(w.english.toUpperCase())}</strong> ${tags}</li>`;
     })
     .join("");
 
@@ -382,7 +417,7 @@ export function buildWordSearchHtml({
   };
 
   const script = `
-    const DATA = ${JSON.stringify(data)};
+    const DATA = ${safeJsonForScript(data)};
     const gridEl = document.getElementById('grid');
     gridEl.style.gridTemplateColumns = 'repeat(' + DATA.cols + ', 1fr)';
     gridEl.style.touchAction = 'none';
