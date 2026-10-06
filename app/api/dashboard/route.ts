@@ -17,6 +17,13 @@ export async function GET() {
     dbHealthy = false;
   }
 
+  // If the database is down, none of the queries below can work. Say so plainly
+  // (the page then shows "Unhealthy — database unreachable") instead of letting
+  // them throw and turning the whole response into a generic 500.
+  if (!dbHealthy) {
+    return NextResponse.json({ health: { database: "unreachable" } });
+  }
+
   const [
     activityCounts,
     generationBySuccess,

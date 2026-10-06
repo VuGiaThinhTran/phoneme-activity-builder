@@ -12,6 +12,7 @@ import { defineConfig, devices } from "@playwright/test";
  */
 export default defineConfig({
   testDir: "./tests",
+  testIgnore: "**/unit/**", // those run via playwright.unit.config.ts (npm run test:unit)
   fullyParallel: false,
   retries: 0,
   reporter: [["html", { open: "never" }], ["list"]],

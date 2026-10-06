@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { PHONEMES } from "@/lib/phonemes";
 
 // --- Shared primitives -----------------------------------------------------
 
@@ -10,15 +11,25 @@ const difficultySchema = z.enum(["EASY", "NORMAL", "HARD"], {
   message: "difficulty must be one of 'EASY', 'NORMAL', or 'HARD'",
 });
 
-// A single phoneme token — deliberately just "non-empty string", since
-// symbols are variable-length (1–3 Unicode characters, e.g. "n" vs "tʃ" vs
-// "æɪ"). Trimmed so stray whitespace from a form field doesn't silently
-// become a "phoneme".
+// The app's fixed set of phoneme symbols (the on-screen keyboard). A word
+// using anything else — a typo, or a look-alike such as "ʌ" for "ɐ" — can never
+// be guessed or found in a puzzle, so it is rejected at the door rather than
+// stored. (The dashboard still flags any such rows that got in another way,
+// e.g. data saved before this check existed, or edited directly in the database.)
+const SUPPORTED_PHONEMES = new Set(PHONEMES.map((p) => p.ipa));
+
+// A single phoneme token. Symbols are variable-length (1–3 Unicode characters,
+// e.g. "n" vs "tʃ" vs "æɪ"), which is why this is a whole-token check against
+// the set above rather than a character check. Trimmed so stray whitespace from
+// a form field doesn't silently become a "phoneme".
 const phonemeTokenSchema = z
   .string()
   .trim()
   .min(1, "Each phoneme must be at least one character.")
-  .max(4, "A single phoneme token looks too long — check for stray spaces.");
+  .max(4, "A single phoneme token looks too long — check for stray spaces.")
+  .refine((token) => SUPPORTED_PHONEMES.has(token), {
+    message: "Not a supported phoneme symbol — use the symbols on the on-screen keyboard.",
+  });
 
 const englishSchema = z
   .string()
@@ -26,12 +37,16 @@ const englishSchema = z
   .min(1, "The word's spelling can't be empty.")
   .max(64, "That spelling looks unusually long (max 64 characters).");
 
+// An empty hint means "no hint". (The transform runs before .optional() so that
+// "" really becomes undefined; an earlier version put it in a z.literal("") branch
+// of an .or(), which was never reached because the string branch accepted "" first,
+// so empty hints were being stored as "" instead of NULL.)
 const hintSchema = z
   .string()
   .trim()
   .max(280, "Hints are capped at 280 characters.")
-  .optional()
-  .or(z.literal("").transform(() => undefined));
+  .transform((value) => (value === "" ? undefined : value))
+  .optional();
 
 // --- Word -------------------------------------------------------------------
 

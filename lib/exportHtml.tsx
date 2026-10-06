@@ -1,5 +1,5 @@
 import { PHONEMES, PhonemeWord, KEYBOARD_ROWS } from "./phonemes";
-import { buildWordSearch } from "./wordsearch";
+import { buildWordSearch, findUnplacedWords } from "./wordsearch";
 
 // Teacher-supplied text (a word's spelling, its hint) is embedded directly
 // into a static HTML string below, not rendered through React/JSX — so it
@@ -393,9 +393,16 @@ export function buildWordSearchHtml({
   darkMode = false,
 }: WordSearchExportConfig): string {
   const tokenLists = words.map((w) => w.phonemes);
-  const { grid, placements } = buildWordSearch(tokenLists, rows, cols, seed);
+  const { grid, placements, unplaced } = buildWordSearch(tokenLists, rows, cols, seed);
 
-  const phonemeList = words
+  // A word that did not fit in the grid can never be found, so it must not
+  // appear in the file's word list or in its "found X of N" count. (The builder
+  // page refuses to generate in that case; this keeps the file correct for any
+  // other caller too.)
+  const skipped = findUnplacedWords(words, unplaced);
+  const playable = words.filter((w) => !skipped.includes(w));
+
+  const phonemeList = playable
     .map((w) => {
       const tags = w.phonemes
         .map((ipa) => {
@@ -411,7 +418,7 @@ export function buildWordSearchHtml({
     grid,
     rows,
     cols,
-    words: tokenLists,
+    words: playable.map((w) => w.phonemes),
     placements: placements.map((p) => ({ tokens: p.tokens, row: p.row, col: p.col, dir: p.dir })),
     revealAnswers,
   };

@@ -86,8 +86,9 @@ export default function DashboardPage() {
     return () => clearInterval(interval);
   }, []);
 
+  const dbDown = data?.health.database === "unreachable";
   const successRate =
-    data && data.generation.total > 0
+    data && !dbDown && data.generation.total > 0
       ? Math.round((data.generation.successCount / data.generation.total) * 100)
       : null;
 
@@ -153,6 +154,15 @@ export default function DashboardPage() {
             </div>
           </section>
 
+          {dbDown && (
+            <p className="mt-6 text-sm opacity-80" role="alert">
+              The figures can&apos;t be read while the database is unreachable. This page checks again every 15
+              seconds, so it will fill in as soon as the database is back.
+            </p>
+          )}
+
+          {!dbDown && (
+            <>
           {/* Alerts */}
           {(data.alerts.recentFailures.length > 0 ||
             data.alerts.emptyActivities.length > 0 ||
@@ -294,6 +304,8 @@ export default function DashboardPage() {
                 </table>
               </div>
             </section>
+          )}
+            </>
           )}
         </>
       )}

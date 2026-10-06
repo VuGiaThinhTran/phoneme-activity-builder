@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { KeyboardEvent as ReactKeyboardEvent } from "react";
 import { WORD_SEARCH_LIST, findPhoneme, parsePhonemeWordList, formatPhonemeWordList, PhonemeWord } from "@/lib/phonemes";
-import { buildWordSearch } from "@/lib/wordsearch";
+import { buildWordSearch, findUnplacedWords } from "@/lib/wordsearch";
 import { buildWordSearchHtml } from "@/lib/exportHtml";
 import { ApiActivitySummary, ApiError, fetchActivities, fetchActivity } from "@/lib/api-client";
 import { logGenerationEvent, reportPageViewOnLeave } from "@/lib/metrics-client";
@@ -67,6 +67,10 @@ export default function WordSearchPage() {
 
   const tokenLists = useMemo(() => words.map((w) => w.phonemes), [words]);
   const puzzle = useMemo(() => buildWordSearch(tokenLists, rows, cols, seed), [tokenLists, rows, cols, seed]);
+  // Words that did not fit in the grid. They are not in the puzzle, so they must
+  // not count towards "found X of N" — otherwise the puzzle could never be finished.
+  const unplacedWords = useMemo(() => findUnplacedWords(words, puzzle.unplaced), [words, puzzle]);
+  const playableCount = words.length - unplacedWords.length;
 
   useEffect(() => {
     if (!banner) return;
@@ -125,13 +129,13 @@ export default function WordSearchPage() {
     if (match && !found.has(match.english)) {
       const nextFound = new Set(found).add(match.english);
       setFound(nextFound);
-      if (nextFound.size === words.length) {
-        setBanner({ type: "win", text: `🎉 Correct! All ${words.length} words found — nice work!` });
+      if (nextFound.size === playableCount) {
+        setBanner({ type: "win", text: `🎉 Correct! All ${playableCount} words found — nice work!` });
       } else {
         setBanner({
           type: "win",
-          text: `🎉 Correct! "${match.english.toUpperCase()}" — ${words.length - nextFound.size} word${
-            words.length - nextFound.size === 1 ? "" : "s"
+          text: `🎉 Correct! "${match.english.toUpperCase()}" — ${playableCount - nextFound.size} word${
+            playableCount - nextFound.size === 1 ? "" : "s"
           } to go.`,
         });
       }
@@ -209,6 +213,20 @@ export default function WordSearchPage() {
     if (typedWords.length === 0) {
       logGenerationEvent({ activityType: "WORD_SEARCH", success: false, errorMessage: "Empty word list", wordCount: 0 });
       setGenerateWarning("Can't generate — the word list is empty. Add at least one word first.");
+      return;
+    }
+    if (unplacedWords.length > 0) {
+      // Don't ship a puzzle that silently leaves words out: tell the teacher, and record
+      // the failed attempt so the dashboard's failed-generation alert shows it.
+      const names = unplacedWords.map((w) => w.english).join(", ");
+      const message = `${unplacedWords.length} word${unplacedWords.length === 1 ? "" : "s"} don't fit in the ${rows}×${cols} grid: ${names}`;
+      logGenerationEvent({
+        activityType: "WORD_SEARCH",
+        success: false,
+        errorMessage: message.slice(0, 480),
+        wordCount: words.length,
+      });
+      setGenerateWarning(`${message}. Make the grid bigger, shorten or remove them, or click Generate Puzzle for a new layout.`);
       return;
     }
     try {
@@ -351,6 +369,17 @@ export default function WordSearchPage() {
           {showAnswers ? "Hide Answers" : "Show Answers"}
         </button>
 
+        {unplacedWords.length > 0 && (
+          <p
+            className="text-xs mt-5 rounded-md border-2 px-3 py-2"
+            style={{ borderColor: "var(--coral)", background: "#fbe4d8", color: "#5c3a24" }}
+            role="status"
+          >
+            ⚠️ {unplacedWords.length} word{unplacedWords.length === 1 ? "" : "s"} can&apos;t fit in this {rows}×{cols} grid and{" "}
+            {unplacedWords.length === 1 ? "is" : "are"} not in the puzzle: {unplacedWords.map((w) => w.english).join(", ")}. Make the
+            grid bigger, shorten {unplacedWords.length === 1 ? "it" : "them"}, or click Generate Puzzle for a new layout.
+          </p>
+        )}
         <button
           type="button"
           onClick={handleDownload}
@@ -458,8 +487,8 @@ export default function WordSearchPage() {
           )}
         </div>
         <p role="status" aria-live="polite" className="text-center mt-4 text-sm font-semibold">
-          {found.size} of {words.length} words found
-          {found.size === words.length ? " — all words found!" : ""}
+          {found.size} of {playableCount} words found
+          {found.size === playableCount ? " — all words found!" : ""}
         </p>
       </section>
     </main>

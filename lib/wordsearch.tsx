@@ -17,6 +17,12 @@ export interface Placement {
 export interface WordSearchResult {
   grid: string[][];
   placements: Placement[];
+  /**
+   * Words that could not be placed (too long for the grid, or no free spot
+   * found in 250 random tries on a crowded grid). The grid is still returned,
+   * but these words are NOT in it, so callers must not treat them as findable.
+   */
+  unplaced: string[][];
   rows: number;
   cols: number;
 }
@@ -46,6 +52,7 @@ export function buildWordSearch(
   const rand = seededRandom(seed);
   const grid: (string | null)[][] = Array.from({ length: rows }, () => Array(cols).fill(null));
   const placements: Placement[] = [];
+  const unplaced: string[][] = [];
 
   const sorted = [...words].sort((a, b) => b.length - a.length);
 
@@ -79,6 +86,7 @@ export function buildWordSearch(
       placements.push({ tokens, row, col, dir });
       placed = true;
     }
+    if (!placed) unplaced.push(tokens);
   }
 
   for (let r = 0; r < rows; r++) {
@@ -89,5 +97,20 @@ export function buildWordSearch(
     }
   }
 
-  return { grid: grid as string[][], placements, rows, cols };
+  return { grid: grid as string[][], placements, unplaced, rows, cols };
+}
+
+/**
+ * Which of the given words did not make it into the grid? Matches by phoneme
+ * sequence and one-for-one, so two words with identical phonemes (homophones)
+ * are counted separately.
+ */
+export function findUnplacedWords<T extends { phonemes: string[] }>(words: T[], unplaced: string[][]): T[] {
+  const remaining = unplaced.map((tokens) => tokens.join(" "));
+  return words.filter((w) => {
+    const i = remaining.indexOf(w.phonemes.join(" "));
+    if (i === -1) return false;
+    remaining.splice(i, 1);
+    return true;
+  });
 }
