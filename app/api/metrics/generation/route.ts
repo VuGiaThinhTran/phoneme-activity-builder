@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { generationEventSchema, formatZodError } from "@/lib/validation";
+import { withDbSpan, withSpan } from "@/lib/telemetry";
 
 /**
  * POST /api/metrics/generation — records one attempt to generate a
@@ -24,6 +25,13 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const event = await prisma.generationEvent.create({ data: parsed.data });
+  const event = await withSpan(
+    "metrics.record_generation",
+    {
+      "generation.activity_type": parsed.data.activityType,
+      "generation.success": parsed.data.success,
+    },
+    () => withDbSpan("INSERT", "generation_events", () => prisma.generationEvent.create({ data: parsed.data }))
+  );
   return NextResponse.json({ event }, { status: 201 });
 }

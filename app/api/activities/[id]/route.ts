@@ -3,6 +3,7 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { activityUpdateSchema, formatZodError } from "@/lib/validation";
 import { serializeActivity } from "@/lib/serialize";
+import { withDbSpan, withSpan } from "@/lib/telemetry";
 
 const wordsInclude = {
   words: {
@@ -16,11 +17,21 @@ type Params = { params: Promise<{ id: string }> };
 /** GET /api/activities/[id] — one activity with its full, ordered word list. */
 export async function GET(_req: NextRequest, { params }: Params) {
   const { id } = await params;
-  const activity = await prisma.activity.findUnique({ where: { id }, include: wordsInclude });
-  if (!activity) {
-    return NextResponse.json({ error: "Activity not found." }, { status: 404 });
-  }
-  return NextResponse.json({ activity: serializeActivity(activity) });
+  return withSpan("activities.get", { "activity.id": id }, async (span) => {
+    const activity = await withDbSpan(
+      "SELECT",
+      "activities",
+      () => prisma.activity.findUnique({ where: { id }, include: wordsInclude }),
+      { "db.note": "activity + its words + their phoneme_segments" }
+    );
+    if (!activity) {
+      span.setAttribute("activity.found", false);
+      return NextResponse.json({ error: "Activity not found." }, { status: 404 });
+    }
+    span.setAttribute("activity.found", true);
+    const payload = await withSpan("activities.serialize", {}, () => serializeActivity(activity));
+    return NextResponse.json({ activity: payload });
+  });
 }
 
 /**

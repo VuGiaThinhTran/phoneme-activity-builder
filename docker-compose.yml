@@ -30,8 +30,24 @@ services:
     environment:
       DATABASE_URL: "postgresql://postgres:postgres@db:5432/phoneme_builder?schema=public"
       NODE_ENV: production
+      # Tracing: instrumentation.ts switches OpenTelemetry on; these two
+      # variables say where the spans go. "jaeger" is the service name below,
+      # which Docker's internal DNS resolves — the same way the app reaches
+      # the database as "db". If Jaeger is down the app still works.
+      OTEL_EXPORTER_OTLP_ENDPOINT: "http://jaeger:4318"
+      OTEL_EXPORTER_OTLP_PROTOCOL: "http/json"
     ports:
       - "3000:3000"
+
+  jaeger:
+    # Jaeger v2 all-in-one: receives traces over OTLP, keeps them in memory
+    # (they are lost when the container restarts — fine for a demo), and
+    # serves the UI. v1's "all-in-one" image is end-of-life.
+    image: cr.jaegertracing.io/jaegertracing/jaeger:2.20.0
+    restart: unless-stopped
+    ports:
+      - "16686:16686" # Jaeger UI -> http://localhost:16686
+      - "4318:4318" # OTLP over HTTP; only needed if you run the app outside Docker
 
 volumes:
   pgdata:
